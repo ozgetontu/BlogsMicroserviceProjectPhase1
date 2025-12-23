@@ -4,51 +4,63 @@ namespace Blogs.App.Domain
 {
     public class BlogsDb : DbContext
     {
+        // Phase 1 Tabloları
         public DbSet<Blog> Blogs { get; set; }
         public DbSet<Tag> Tags { get; set; }
         public DbSet<BlogTag> BlogTags { get; set; }
+
+        // Phase 2 Tabloları (YENİ EKLENDİ)
+        public DbSet<User> Users { get; set; }
+        public DbSet<Role> Roles { get; set; }
 
         public BlogsDb(DbContextOptions options) : base(options)
         {
         }
 
-        // Overriding OnModelCreating method is optional.
-        /// <summary>
-        /// Configures the entity relationships and database schema rules for the application domain.
-        /// This method defines how entities are related, sets up foreign key constraints, and customizes
-        /// the delete behavior for each relationship to prevent cascading deletes.
-        /// </summary>
-        /// <param name="modelBuilder">
-        /// The <see cref="ModelBuilder"/> used to configure entity mappings and relationships.
-        /// </param>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Index configurations:
-            // Defining unique indices to enforce uniqueness constraints on certain properties.
+            // --- Phase 1: Blog & Tag Ayarları ---
 
-            // Name data of the Tags table can not have multiple same values.
+            // Tag ismi benzersiz olsun
             modelBuilder.Entity<Tag>().HasIndex(t => t.Name).IsUnique();
 
-            // Many-to-Many Configuration (BlogTag):
-            // Define composite primary key for the join table.
+            // BlogTag (Çoka-Çok) Anahtar Tanımı
             modelBuilder.Entity<BlogTag>().HasKey(bt => new { bt.BlogId, bt.TagId });
 
-            // Relationship configurations:
-            // Configuration should start with the entities that have the foreign keys.
-
-            // BlogTag -> Blog Relationship
+            // BlogTag -> Blog İlişkisi
             modelBuilder.Entity<BlogTag>()
                 .HasOne(bt => bt.Blog)
                 .WithMany(b => b.BlogTags)
                 .HasForeignKey(bt => bt.BlogId)
-                .OnDelete(DeleteBehavior.Cascade); // If a Blog is deleted, its tags links should be deleted.
+                .OnDelete(DeleteBehavior.Cascade); // Blog silinirse etiket ilişkisi silinsin
 
-            // BlogTag -> Tag Relationship
+            // BlogTag -> Tag İlişkisi
             modelBuilder.Entity<BlogTag>()
                 .HasOne(bt => bt.Tag)
                 .WithMany(t => t.BlogTags)
                 .HasForeignKey(bt => bt.TagId)
-                .OnDelete(DeleteBehavior.Cascade); // If a Tag is deleted, its links to blogs should be deleted.
+                .OnDelete(DeleteBehavior.Cascade); // Etiket silinirse blog ilişkisi silinsin
+
+            // --- Phase 2: User & Role Ayarları (YENİ) ---
+
+            // Kullanıcı adı benzersiz olsun
+            modelBuilder.Entity<User>().HasIndex(u => u.UserName).IsUnique();
+
+            // User -> Role İlişkisi (1 Rol -> Çok Kullanıcı)
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.Role)
+                .WithMany(r => r.Users)
+                .HasForeignKey(u => u.RoleId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // --- Phase 2: Blog & User BİRLEŞTİRME ---
+            // Bir Blog'un bir yazarı (User) vardır.
+            // Bir User'ın çok Blog'u vardır.
+            modelBuilder.Entity<Blog>()
+                .HasOne(b => b.User)
+                .WithMany(u => u.Blogs)
+                .HasForeignKey(b => b.UserId)
+                .OnDelete(DeleteBehavior.NoAction); // Kullanıcı silinirse bloglar kalsın
         }
     }
 }

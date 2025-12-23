@@ -1,5 +1,6 @@
 ﻿using Blogs.App.Features.BlogReports;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,7 @@ namespace Blogs.API.Controllers
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // KİLİT: Bu Controller'daki metodlara sadece giriş yapmış (Authenticated) kullanıcılar erişebilir.
     public class BlogReportsController : ControllerBase
     {
         private readonly IMediator _mediator;
