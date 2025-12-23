@@ -11,6 +11,7 @@ namespace Blogs.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // 1. GENEL KİLİT: Buradaki her şey varsayılan olarak giriş gerektirir.
     public class BlogsController : ControllerBase
     {
         private readonly ILogger<BlogsController> _logger;
@@ -24,6 +25,7 @@ namespace Blogs.API.Controllers
 
         // GET: api/Blogs
         [HttpGet]
+        [AllowAnonymous] // 2. İSTİSNA: Giriş yapmayanlar da blogları okuyabilir.
         public async Task<IActionResult> Get()
         {
             try
@@ -37,13 +39,13 @@ namespace Blogs.API.Controllers
             catch (Exception exception)
             {
                 _logger.LogError("BlogsGet Exception: " + exception.Message);
-                // DÜZELTİLDİ: Constructor kullanımı (bool, string)
                 return StatusCode(StatusCodes.Status500InternalServerError, new CommandResponse(false, "An exception occured during BlogsGet."));
             }
         }
 
         // GET: api/Blogs/5
         [HttpGet("{id}")]
+        [AllowAnonymous] // 2. İSTİSNA: Tekil okuma da herkese açık.
         public async Task<IActionResult> Get(int id)
         {
             try
@@ -53,19 +55,18 @@ namespace Blogs.API.Controllers
                 if (item is not null)
                     return Ok(item);
 
-                // Eğer kayıt YOKSA (null ise), 404 hatası ile birlikte özel mesajını döndür.
                 return NotFound(new CommandResponse(false, "There is no Blog with this id in database!"));
             }
             catch (Exception exception)
             {
                 _logger.LogError("BlogsGetById Exception: " + exception.Message);
-                // DÜZELTİLDİ: Constructor kullanımı
                 return StatusCode(StatusCodes.Status500InternalServerError, new CommandResponse(false, "An exception occured during BlogsGetById."));
             }
         }
 
         // POST: api/Blogs
         [HttpPost]
+        [Authorize(Roles = "Admin")] // 3. ÖZEL KİLİT: Sadece "Admin" rolündekiler ekleme yapabilir.
         public async Task<IActionResult> Post(BlogCreateRequest request)
         {
             try
@@ -79,19 +80,18 @@ namespace Blogs.API.Controllers
                     }
                     ModelState.AddModelError("BlogsPost", response.Message);
                 }
-                // DÜZELTİLDİ: Constructor kullanımı
                 return BadRequest(new CommandResponse(false, string.Join("|", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))));
             }
             catch (Exception exception)
             {
                 _logger.LogError("BlogsPost Exception: " + exception.Message);
-                // DÜZELTİLDİ: Constructor kullanımı
                 return StatusCode(StatusCodes.Status500InternalServerError, new CommandResponse(false, "An exception occured during BlogsPost."));
             }
         }
 
         // PUT: api/Blogs
         [HttpPut]
+        [Authorize(Roles = "Admin")] // 3. ÖZEL KİLİT: Sadece "Admin" güncelleyebilir.
         public async Task<IActionResult> Put(BlogUpdateRequest request)
         {
             try
@@ -105,19 +105,18 @@ namespace Blogs.API.Controllers
                     }
                     ModelState.AddModelError("BlogsPut", response.Message);
                 }
-                // DÜZELTİLDİ: Constructor kullanımı
                 return BadRequest(new CommandResponse(false, string.Join("|", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))));
             }
             catch (Exception exception)
             {
                 _logger.LogError("BlogsPut Exception: " + exception.Message);
-                // DÜZELTİLDİ: Constructor kullanımı
                 return StatusCode(StatusCodes.Status500InternalServerError, new CommandResponse(false, "An exception occured during BlogsPut."));
             }
         }
 
         // DELETE: api/Blogs/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")] // 3. ÖZEL KİLİT: Sadece "Admin" silebilir.
         public async Task<IActionResult> Delete(int id)
         {
             try
@@ -128,13 +127,11 @@ namespace Blogs.API.Controllers
                     return Ok(response);
                 }
                 ModelState.AddModelError("BlogsDelete", response.Message);
-                // DÜZELTİLDİ: Constructor kullanımı
                 return BadRequest(new CommandResponse(false, string.Join("|", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))));
             }
             catch (Exception exception)
             {
                 _logger.LogError("BlogsDelete Exception: " + exception.Message);
-                // DÜZELTİLDİ: Constructor kullanımı
                 return StatusCode(StatusCodes.Status500InternalServerError, new CommandResponse(false, "An exception occured during BlogsDelete."));
             }
         }

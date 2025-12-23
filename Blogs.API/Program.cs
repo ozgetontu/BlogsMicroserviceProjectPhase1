@@ -1,8 +1,6 @@
 using Blogs.App.Domain;
-using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -11,62 +9,54 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-// Add services to the IoC Container.
-
-// 1. DbContext (Veritabaný Baðlantýsý):
-// Hocanýn yapýsýndaki gibi DbContext base class'ý ile birlikte kaydediyoruz.
-// <DbContext, BlogsDb> yazarak hem base sýnýfý hem de kendi sýnýfýmýzý tanýtýyoruz.
+// --- 1. Veritabaný (DbContext) - KRÝTÝK DÜZELTME BURADA ---
+// <DbContext, BlogsDb> diyerek hem base sýnýfý hem de kendi sýnýfýmýzý tanýtýyoruz.
+// Böylece Handler'lar "DbContext" istediðinde hata vermeyecek.
 builder.Services.AddDbContext<DbContext, BlogsDb>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("BlogsDb")));
 
-// 2. Mediator:
-// Hocanýn döngüsel (loop) yapýsý. Tüm assembly'leri tarayýp MediatR servislerini bulur.
+// --- 2. MediatR (Handler'lar) ---
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(BlogsDb).Assembly));
 
-// 3. Authentication (JWT):
-// Hocanýn kodundaki SecurityKey, Issuer ve Audience ayarlarý.
-builder.Configuration["SecurityKey"] = "blogs_microservices_security_key_2025="; // Senin için özelleþtirdim
+// --- 3. Authentication (JWT Ayarlarý) ---
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(config =>
     {
+        // Güvenlik anahtarýný al, boþsa hata verme
+        var securityKey = builder.Configuration["SecurityKey"] ?? string.Empty;
+
         config.TokenValidationParameters = new TokenValidationParameters
         {
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["SecurityKey"] ?? string.Empty)),
-            ValidIssuer = builder.Configuration["Issuer"],
-            ValidAudience = builder.Configuration["Audience"],
-            ValidateIssuer = true,
-            ValidateAudience = true,
             ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(securityKey)),
+
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Issuer"],
+
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["Audience"],
+
             ValidateLifetime = true
         };
     });
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 
-// 4. Swagger Konfigürasyonu (Kilit Simgesi Eklemek Ýçin):
+// --- 4. Swagger (Kilit Butonu) ---
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Blogs API", Version = "v1" });
+
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Title = "Blogs API",
-        Version = "v1"
-    });
-    // JWT yetkilendirme butonu (Kilit simgesi) ekler
-    c.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme
-    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
         Name = "Authorization",
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = JwtBearerDefaults.AuthenticationScheme,
-        BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = """
-        JWT Authorization header using the Bearer scheme.
-        Enter your JWT as: "Bearer jwt"
-        Example: "Bearer a1b2c3"
-        """
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
     });
+
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -75,7 +65,7 @@ builder.Services.AddSwaggerGen(c =>
                 Reference = new OpenApiReference
                 {
                     Type = ReferenceType.SecurityScheme,
-                    Id = JwtBearerDefaults.AuthenticationScheme
+                    Id = "Bearer"
                 }
             },
             Array.Empty<string>()
@@ -83,20 +73,10 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// 5. CORS Politikasý:
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(builder => builder
-        .AllowAnyOrigin()
-        .AllowAnyHeader()
-        .AllowAnyMethod());
-});
-
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -105,12 +85,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// 6. Middleware Sýralamasý (Çok Önemli):
-app.UseAuthentication(); // Önce kimlik kontrolü
-app.UseAuthorization();  // Sonra yetki kontrolü
+// --- 5. Middleware Sýralamasý ---
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
-
-app.UseCors();
 
 app.Run();
